@@ -1,6 +1,7 @@
 #! /usr/env/bin python
 
 import datetime
+from collections import deque
 
 opss = ['-', '+', '/', '*']
 opsss = set(opss)
@@ -27,14 +28,14 @@ opsss = set(opss)
 # (9, 25, 5, 7, 3, 8) ('-', '-', '-', '*', '*') [9, 25, 7, '-', 5, '*', '*', 3, '-', 8, '-'] 799
 # Finished 2019-09-14 13:54:04.838940
 
-# handle invalid calculations as divided by 0
+# handle some invalid calculations as divided by 0
 def handle(f):
     def safe_f(*arg, **kw):
         try:
             return f(*arg, **kw)
         except:
             return 0
-    return safe_f
+    return f
 
 ops = {
   "+": handle(lambda a, b: a + b),
@@ -52,7 +53,7 @@ def remove(l, num):
 def get_next_values(vertex):
     current_number = vertex[0]
     nums = vertex[2]
-    return [(ops[op](current_number, avail_number), str(avail_number) + " " + op, remove(nums, avail_number)) for op in ops for avail_number in nums]
+    return ((ops[op](current_number, avail_number), str(avail_number) + " " + op, remove(nums, avail_number)) for op in ops for avail_number in nums)
 
 
 def eval(tokens):
@@ -71,16 +72,17 @@ def eval(tokens):
 
 # Simply do BFS on graph with start is 0 and end is our desired_result
 def find_match(numbers, operations, desired_result):
-    start = (0, "0", numbers)
+    start = (0, "0", tuple(numbers))
     # Each vertex is in format (current value, "how to get to this value", available number that we can use to build next values)
 
 
-    queue = [[start]]
-    visited = []
+    queue = deque()
+    queue.append((start,))
+    visited = set()
 
     while queue:
         # Gets the first path in the queue
-        path = queue.pop(0)
+        path = queue.pop()
 
         # Gets the last node in the path
         vertex = path[-1]
@@ -92,12 +94,10 @@ def find_match(numbers, operations, desired_result):
         elif vertex not in visited:
             # enumerate all adjacent nodes, construct a new path and push it into the queue
             for current_neighbour in get_next_values(vertex):
-                new_path = list(path)
-                new_path.append(current_neighbour)
-                queue.append(new_path)
+                if current_neighbour not in visited: queue.append(path + (current_neighbour,))
 
             # Mark the vertex as visited
-            visited.append(vertex)
+            visited.update(vertex)
 
 
 if __name__ == '__main__':
