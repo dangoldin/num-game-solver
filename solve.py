@@ -1,7 +1,7 @@
 #! /usr/env/bin python
 
-from itertools import permutations, combinations_with_replacement
 import datetime
+from collections import deque
 
 opss = ['-', '+', '/', '*']
 opsss = set(opss)
@@ -28,13 +28,33 @@ opsss = set(opss)
 # (9, 25, 5, 7, 3, 8) ('-', '-', '-', '*', '*') [9, 25, 7, '-', 5, '*', '*', 3, '-', 8, '-'] 799
 # Finished 2019-09-14 13:54:04.838940
 
+# handle some invalid calculations as divided by 0
+def handle(f):
+    def safe_f(*arg, **kw):
+        try:
+            return f(*arg, **kw)
+        except:
+            return 0
+    return f
 
 ops = {
-  "+": (lambda a, b: a + b),
-  "-": (lambda a, b: a - b),
-  "*": (lambda a, b: a * b),
-  "/": (lambda a, b: a / b)
+  "+": handle(lambda a, b: a + b),
+  "-": handle(lambda a, b: a - b),
+  "*": handle(lambda a, b: a * b),
+  "/": handle(lambda a, b: a / b)
 }
+
+# remove num from list l without modifying orginal list
+def remove(l, num):
+    index = l.index(num)
+    return l[:index] + l[index+1:]
+
+# Generate a list of vertex that we can visit from current vertex
+def get_next_values(vertex):
+    current_number = vertex[0]
+    nums = vertex[2]
+    return ((ops[op](current_number, avail_number), str(avail_number) + " " + op, remove(nums, avail_number)) for op in ops for avail_number in nums)
+
 
 def eval(tokens):
     stack = []
@@ -50,35 +70,38 @@ def eval(tokens):
 
     return stack.pop()
 
-def valid(exp):
-    nums = 0
-    ops = 0
-    for e in exp:
-        if e in opsss:
-            ops += 1
-        else:
-            nums += 1
-        if ops >= nums:
-            return False
-    return True
+# Simply do BFS on graph with start is 0 and end is our desired_result
+def find_match(numbers, operations, desired_result):
+    start = (0, "0", tuple(numbers))
+    # Each vertex is in format (current value, "how to get to this value", available number that we can use to build next values)
 
-def find_match(numbers, operations):
-    for p in permutations(numbers):
-        for o in combinations_with_replacement(operations, len(numbers)-1):
-            rs = p + o
 
-            for r in permutations(rs):
-                s = list(r)
-                if valid(s):
-                    try:
-                        val = eval(s)
-                        if val == desired_result:
-                            print(p, o, s, val)
-                            return
-                    except:
-                        pass
+    queue = deque()
+    queue.append((start,))
+    visited = set()
+
+    while queue:
+        # Gets the first path in the queue
+        path = queue.pop()
+
+        # Gets the last node in the path
+        vertex = path[-1]
+
+        # Checks if we got to the end
+        if vertex[0] == desired_result:
+            return " ".join(a[1] for a in path)
+        # We check if the current node is already in the visited nodes set in order not to recheck it
+        elif vertex not in visited:
+            # enumerate all adjacent nodes, construct a new path and push it into the queue
+            for current_neighbour in get_next_values(vertex):
+                if current_neighbour not in visited: queue.append(path + (current_neighbour,))
+
+            # Mark the vertex as visited
+            visited.update(vertex)
+
 
 if __name__ == '__main__':
     print('Started', datetime.datetime.now())
-    find_match(nums, opss)
+    exp = find_match(nums, opss, desired_result).split(' ')
+    print(exp, eval(exp))
     print('Finished', datetime.datetime.now())
